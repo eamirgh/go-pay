@@ -1,4 +1,4 @@
-module github.com/eamirgh/payment
+module github.com/eamirgh/go-pay
 
 go 1.19
 
