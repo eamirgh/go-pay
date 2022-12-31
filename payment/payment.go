@@ -2,15 +2,15 @@ package payment
 
 import "github.com/google/uuid"
 
-type Payment interface {
+type Paymenter interface {
+	Via(driver string)
 	Driver() string
 	CallbackURL(url string) string
 	Amount(amount uint64)
-	Invoice() *Invoice
 	Detail(details map[string]string)
 	TransactionID(id string)
-	Via(driver string)
-	Purchase(i Invoice)
+	Invoice() *Invoice
+	Purchase(i *Invoice)
 	Verify() *Receipt
 }
 
@@ -19,19 +19,17 @@ type Invoice struct {
 	Amount        uint64
 	Currency      string
 	TransactionID string
-	Driver        string
+	Details       map[string]string
+	Driver        *Driverer
 }
 
 type Receipt struct {
 	Details map[string]string
 }
 
-type Driver interface {
-	Amount(amount uint64)     //sets Amount
-	Detail(map[string]string) //sets Details
-	Purchase() string
-	Pay() *PayResponse
-	Verify() *Receipt
+type Driverer interface {
+	Pay(i *Invoice) *PayResponse
+	Verify(r *Receipt) *Receipt
 }
 
 type PayResponse struct {
