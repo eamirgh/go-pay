@@ -1,6 +1,10 @@
 package payment
 
-import "github.com/google/uuid"
+import (
+	"context"
+
+	"github.com/google/uuid"
+)
 
 type Paymenter interface {
 	Via(driver *Driver)
@@ -24,12 +28,14 @@ type Invoice struct {
 }
 
 type Receipt struct {
+	RefID   string
 	Details map[string]string
 }
 
 type Driver interface {
+	Purchase(ctx context.Context, i *Invoice) (*Invoice, error)
 	Pay(i *Invoice) *PayResponse
-	Verify(r *Receipt) *Receipt
+	Verify(ctx context.Context, transactionID string, amount uint64) (*Receipt, error)
 }
 
 type PayResponse struct {

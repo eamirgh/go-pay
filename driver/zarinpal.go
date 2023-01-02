@@ -54,11 +54,11 @@ func NewZarinpalConfig(mode, merchantID, callback, description string) *Zarinpal
 
 // Gateway creates new Zarinpal gateway from the credentials in config
 func (z *ZarinpalConfig) Gateway() (*Zarinpal, error) {
-	if z.mode != ZARINPAL_GATEWAY && z.mode != ZARINPAL_NORMAL && z.mode != ZARINPAL_SANDBOX {
+	if z.Mode != ZARINPAL_GATEWAY && z.Mode != ZARINPAL_NORMAL && z.Mode != ZARINPAL_SANDBOX {
 		return nil, errors.New("invalid mode for Zarinpal driver")
 	}
 	var endpoints map[string]string
-	switch z.mode {
+	switch z.Mode {
 	case ZARINPAL_GATEWAY:
 		endpoints = zarinGateAPI
 	case ZARINPAL_NORMAL:
@@ -128,7 +128,7 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 		return nil, errors.New(res.Errors.Message)
 	}
 	i.TransactionID = res.Authority
-	return i
+	return i, nil
 }
 func (z *Zarinpal) Pay(i *payment.Invoice) *payment.PayResponse {
 	return &payment.PayResponse{
@@ -143,7 +143,11 @@ type verifyReq struct {
 	Amount     uint64 `json:"amount"`
 }
 
-func (z *Zarinpal) Verify(transactionID string, amount uint64) (*payment.Receipt, error) {
+func (r *verifyReq) toJSON() ([]byte, error) {
+	return json.Marshal(r)
+}
+
+func (z *Zarinpal) Verify(ctx context.Context, transactionID string, amount uint64) (*payment.Receipt, error) {
 	bs, err := (&verifyReq{
 		MerchantID: z.cfg.MerchantID,
 		Authority:  transactionID,
@@ -186,7 +190,7 @@ func (z *Zarinpal) Verify(transactionID string, amount uint64) (*payment.Receipt
 		return nil, errors.New(res.Errors.Message)
 	}
 	return &payment.Receipt{
-		TransactionID: res.RefID,
-		Details:       res.Details,
+		RefID:   res.RefID,
+		Details: res.Details,
 	}, nil
 }
