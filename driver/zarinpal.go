@@ -1,10 +1,10 @@
 package driver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -16,41 +16,42 @@ const ZARINPAL_NORMAL = "normal"
 const ZARINPAL_GATEWAY = "gateway"
 
 var normalAPI = map[string]string{
-	"apiPurchaseUrl":"https://api.zarinpal.com/pg/v4/payment/request.json",
-	"apiPaymentUrl" : "https://www.zarinpal.com/pg/StartPay/",
-	"apiVerificationUrl" : "https://api.zarinpal.com/pg/v4/payment/verify.json"
+	"apiPurchaseUrl":     "https://api.zarinpal.com/pg/v4/payment/request.json",
+	"apiPaymentUrl":      "https://www.zarinpal.com/pg/StartPay/",
+	"apiVerificationUrl": "https://api.zarinpal.com/pg/v4/payment/verify.json",
 }
 var sandboxAPI = map[string]string{
-	"apiPurchaseUrl" : "https://sandbox.zarinpal.com/pg/services/WebGate/wsdl",
-	"apiPaymentUrl" : "https://sandbox.zarinpal.com/pg/StartPay/",
-	"apiVerificationUrl" : "https://sandbox.zarinpal.com/pg/services/WebGate/wsdl",
+	"apiPurchaseUrl":     "https://sandbox.zarinpal.com/pg/services/WebGate/wsdl",
+	"apiPaymentUrl":      "https://sandbox.zarinpal.com/pg/StartPay/",
+	"apiVerificationUrl": "https://sandbox.zarinpal.com/pg/services/WebGate/wsdl",
 }
 var zarinGateAPI = map[string]string{
-	"apiPurchaseUrl" : "https://ir.zarinpal.com/pg/services/WebGate/wsdl",
-	"apiPaymentUrl" : "https://www.zarinpal.com/pg/StartPay/:authority/ZarinGate",
-	"apiVerificationUrl" : "https://ir.zarinpal.com/pg/services/WebGate/wsdl",
+	"apiPurchaseUrl":     "https://ir.zarinpal.com/pg/services/WebGate/wsdl",
+	"apiPaymentUrl":      "https://www.zarinpal.com/pg/StartPay/:authority/ZarinGate",
+	"apiVerificationUrl": "https://ir.zarinpal.com/pg/services/WebGate/wsdl",
 }
 
 type Zarinpal struct {
-	cfg *ZarinpalConfig
+	cfg       *ZarinpalConfig
 	endpoints map[string]string
 }
 
 type ZarinpalConfig struct {
-	Mode       string
-	MerchantID string
-	Callback   string
+	Mode        string
+	MerchantID  string
+	Callback    string
 	Description string
 }
 
 func NewZarinpalConfig(mode, merchantID, callback, description string) *ZarinpalConfig {
 	return &ZarinpalConfig{
-		Mode:       mode,
-		MerchantID: merchantID,
-		Callback:   callback,
+		Mode:        mode,
+		MerchantID:  merchantID,
+		Callback:    callback,
 		Description: description,
 	}
 }
+
 // Gateway creates new Zarinpal gateway from the credentials in config
 func (z *ZarinpalConfig) Gateway() (*Zarinpal, error) {
 	if z.mode != ZARINPAL_GATEWAY && z.mode != ZARINPAL_NORMAL && z.mode != ZARINPAL_SANDBOX {
@@ -71,26 +72,25 @@ func (z *ZarinpalConfig) Gateway() (*Zarinpal, error) {
 	}, nil
 }
 
-
 type purchaseReq struct {
-	MerchantID string `json:"merchant_id"`
-	Amount     uint64 `json:"amount"`
-	CallbackURL string `json:"callback_url"`
-	Description string `json:"description"`
-	Metadata   map[string]string `json:"metadata"`
+	MerchantID  string            `json:"merchant_id"`
+	Amount      uint64            `json:"amount"`
+	CallbackURL string            `json:"callback_url"`
+	Description string            `json:"description"`
+	Metadata    map[string]string `json:"metadata"`
 }
 
 func (r *purchaseReq) toJSON() ([]byte, error) {
 	return json.Marshal(r)
 }
 
-func (z *Zarinpal) Purchase(ctx context.Context,i *payment.Invoice) (*payment.Invoice, error) { 
+func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.Invoice, error) {
 	bs, err := (&purchaseReq{
-		MerchantID: z.cfg.MerchantID,
-		Amount:     i.Amount,
+		MerchantID:  z.cfg.MerchantID,
+		Amount:      i.Amount,
 		CallbackURL: z.cfg.Callback,
 		Description: z.cfg.Description,
-		Metadata:   i.Details,
+		Metadata:    i.Details,
 	}).toJSON()
 	if err != nil {
 		return nil, err
@@ -114,10 +114,10 @@ func (z *Zarinpal) Purchase(ctx context.Context,i *payment.Invoice) (*payment.In
 		return nil, err
 	}
 	var res struct {
-		Status int `json:"status"`
+		Status    int    `json:"status"`
 		Authority string `json:"authority"`
-		Errors struct {
-			Code int `json:"code"`
+		Errors    struct {
+			Code    int    `json:"code"`
 			Message string `json:"message"`
 		} `json:"errors"`
 	}
@@ -130,19 +130,20 @@ func (z *Zarinpal) Purchase(ctx context.Context,i *payment.Invoice) (*payment.In
 	i.TransactionID = res.Authority
 	return i
 }
-func (z *Zarinpal) Pay(i *payment.Invoice) *payment.PayResponse { 
+func (z *Zarinpal) Pay(i *payment.Invoice) *payment.PayResponse {
 	return &payment.PayResponse{
-		URL: z.endpoints["apiPaymentUrl"] + i.TransactionID,
+		URL:         z.endpoints["apiPaymentUrl"] + i.TransactionID,
 		HasRedirect: true,
 	}
 }
+
 type verifyReq struct {
 	MerchantID string `json:"merchant_id"`
 	Authority  string `json:"authority"`
 	Amount     uint64 `json:"amount"`
 }
 
-func (z *Zarinpal) Verify(transactionID string, amount uint64) (*payment.Receipt, error) { 
+func (z *Zarinpal) Verify(transactionID string, amount uint64) (*payment.Receipt, error) {
 	bs, err := (&verifyReq{
 		MerchantID: z.cfg.MerchantID,
 		Authority:  transactionID,
@@ -154,12 +155,12 @@ func (z *Zarinpal) Verify(transactionID string, amount uint64) (*payment.Receipt
 	body := bytes.NewReader(bs)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, z.endpoints["apiVerificationUrl"], body)
 	if err != nil {
-			return nil, err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-			return nil, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -170,11 +171,11 @@ func (z *Zarinpal) Verify(transactionID string, amount uint64) (*payment.Receipt
 		return nil, err
 	}
 	var res struct {
-		Status int `json:"status"`
-		RefID  string `json:"ref_id"`
+		Status  int               `json:"status"`
+		RefID   string            `json:"ref_id"`
 		Details map[string]string `json:"details"`
-		Errors struct {
-			Code int `json:"code"`
+		Errors  struct {
+			Code    int    `json:"code"`
 			Message string `json:"message"`
 		} `json:"errors"`
 	}
@@ -186,6 +187,6 @@ func (z *Zarinpal) Verify(transactionID string, amount uint64) (*payment.Receipt
 	}
 	return &payment.Receipt{
 		TransactionID: res.RefID,
-		Details: res.Details,
+		Details:       res.Details,
 	}, nil
 }
