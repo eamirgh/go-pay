@@ -84,7 +84,7 @@ func (r *purchaseReq) toJSON() ([]byte, error) {
 	return json.Marshal(r)
 }
 
-func (z *Zarinpal) Purchase(ctx context.Context,i *payment.Invoice) (*payment.PayResponse, error) { 
+func (z *Zarinpal) Purchase(ctx context.Context,i *payment.Invoice) (*payment.Invoice, error) { 
 	bs, err := (&purchaseReq{
 		MerchantID: z.cfg.MerchantID,
 		Amount:     i.Amount,
@@ -96,7 +96,7 @@ func (z *Zarinpal) Purchase(ctx context.Context,i *payment.Invoice) (*payment.Pa
 		return nil, err
 	}
 	body := bytes.NewReader(bs)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, z.z.endpoints["apiPurchaseUrl"], body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, z.endpoints["apiPurchaseUrl"], body)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,6 @@ func (z *Zarinpal) Purchase(ctx context.Context,i *payment.Invoice) (*payment.Pa
 	var res struct {
 		Status int `json:"status"`
 		Authority string `json:"authority"`
-		RefID string `json:"ref_id"`
 		Errors struct {
 			Code int `json:"code"`
 			Message string `json:"message"`
@@ -128,15 +127,65 @@ func (z *Zarinpal) Purchase(ctx context.Context,i *payment.Invoice) (*payment.Pa
 	if res.Status != 100 {
 		return nil, errors.New(res.Errors.Message)
 	}
-	return &payment.PayResponse{
-		Authority: res.Authority,
-		RefID: res.RefID,
-	}, nil
-	return &payment.PayResponse{}
+	i.TransactionID = res.Authority
+	return i
 }
 func (z *Zarinpal) Pay(i *payment.Invoice) *payment.PayResponse { 
-	return &payment.PayResponse{}
+	return &payment.PayResponse{
+		URL: z.endpoints["apiPaymentUrl"] + i.TransactionID,
+		HasRedirect: true,
+	}
 }
-func (z *Zarinpal) Verify() *payment.Receipt { 
-	return &payment.Receipt{}
+type verifyReq struct {
+	MerchantID string `json:"merchant_id"`
+	Authority  string `json:"authority"`
+	Amount     uint64 `json:"amount"`
+}
+
+func (z *Zarinpal) Verify(transactionID string, amount uint64) (*payment.Receipt, error) { 
+	bs, err := (&verifyReq{
+		MerchantID: z.cfg.MerchantID,
+		Authority:  transactionID,
+		Amount:     amount,
+	}).toJSON()
+	if err != nil {
+		return nil, err
+	}
+	body := bytes.NewReader(bs)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, z.endpoints["apiVerificationUrl"], body)
+	if err != nil {
+			return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+			return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("invalid status code")
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var res struct {
+		Status int `json:"status"`
+		RefID  string `json:"ref_id"`
+		Details map[string]string `json:"details"`
+		Errors struct {
+			Code int `json:"code"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(b, &res); err != nil {
+		return nil, err
+	}
+	if res.Status != 100 {
+		return nil, errors.New(res.Errors.Message)
+	}
+	return &payment.Receipt{
+		TransactionID: res.RefID,
+		Details: res.Details,
+	}, nil
 }
