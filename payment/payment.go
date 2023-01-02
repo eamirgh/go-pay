@@ -3,9 +3,9 @@ package payment
 import "github.com/google/uuid"
 
 type Paymenter interface {
-	Via(driver string)
+	Via(driver *Driver)
 	Driver() string
-	CallbackURL(url string) string
+	Callback(url string) string
 	Amount(amount uint64)
 	Detail(details map[string]string)
 	TransactionID(id string)
@@ -20,14 +20,14 @@ type Invoice struct {
 	Currency      string
 	TransactionID string
 	Details       map[string]string
-	Driver        *Driverer
+	Driver        *Driver
 }
 
 type Receipt struct {
 	Details map[string]string
 }
 
-type Driverer interface {
+type Driver interface {
 	Pay(i *Invoice) *PayResponse
 	Verify(r *Receipt) *Receipt
 }
