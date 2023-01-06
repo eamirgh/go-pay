@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/eamirgh/go-pay/payment"
@@ -109,7 +109,7 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("invalid status code")
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, transactionID stri
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("invalid status code")
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
