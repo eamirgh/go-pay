@@ -18,6 +18,13 @@ type Paymenter interface {
 	Verify() *Receipt
 }
 
+type MetaData interface {
+	Details() map[string]string
+	Set(key, value string)
+	Get(key string) string
+	Has(key string) bool
+}
+
 type Invoice struct {
 	ID            uuid.UUID
 	Amount        uint64
@@ -25,6 +32,17 @@ type Invoice struct {
 	TransactionID string
 	Details       map[string]string
 	Driver        *Driver
+}
+
+func (i *Invoice) Set(key, value string) {
+	i.Details[key] = value
+}
+func (i *Invoice) Get(key string) string {
+	return i.Details[key]
+}
+func (i *Invoice) Has(key string) bool {
+	_, ok := i.Details[key]
+	return ok
 }
 
 type Receipt struct {
@@ -35,7 +53,7 @@ type Receipt struct {
 type Driver interface {
 	Purchase(ctx context.Context, i *Invoice) (*Invoice, error)
 	Pay(i *Invoice) *PayResponse
-	Verify(ctx context.Context, transactionID string, amount uint64) (*Receipt, error)
+	Verify(ctx context.Context, amount uint64, args ...string) (*Receipt, error)
 }
 
 type PayResponse struct {

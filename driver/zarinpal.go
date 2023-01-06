@@ -147,7 +147,7 @@ func (r *verifyReq) toJSON() ([]byte, error) {
 	return json.Marshal(r)
 }
 
-func (z *Zarinpal) Verify(ctx context.Context, transactionID string, amount uint64) (*payment.Receipt, error) {
+func (z *Zarinpal) Verify(ctx context.Context, amount uint64, transactionID string) (*payment.Receipt, error) {
 	bs, err := (&verifyReq{
 		MerchantID: z.cfg.MerchantID,
 		Authority:  transactionID,
