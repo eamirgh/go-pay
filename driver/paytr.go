@@ -137,17 +137,17 @@ func (p *Paytr) Pay(i *payment.Invoice) *payment.PayResponse {
 	}
 }
 
-func (p *Paytr) Verify(ctx context.Context, amount uint64, transactionID, hash, status string) (*payment.Receipt, error) {
-	hashStr := fmt.Sprintf("%s%s%s%s", transactionID, p.cfg.MerchantSalt, status, fmt.Sprint(amount))
+func (p *Paytr) Verify(ctx context.Context, amount uint64, args map[string]string) (*payment.Receipt, error) {
+	hashStr := fmt.Sprintf("%s%s%s%s", args["transactionID"], p.cfg.MerchantSalt, args["status"], fmt.Sprint(amount))
 	hasher := hmac.New(sha256.New, []byte(p.cfg.MerchantKey))
 	_, err := hasher.Write([]byte(hashStr))
 	if err != nil {
 		return nil, err
 	}
-	if hash != base64.StdEncoding.EncodeToString(hasher.Sum(nil)) {
+	if args["hash"] != base64.StdEncoding.EncodeToString(hasher.Sum(nil)) {
 		return nil, fmt.Errorf("hash not match")
 	}
-	if status != "success" {
+	if args["status"] != "success" {
 		return nil, fmt.Errorf("payment failed")
 	}
 	return &payment.Receipt{}, nil

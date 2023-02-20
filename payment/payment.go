@@ -53,7 +53,7 @@ type Receipt struct {
 type Driver interface {
 	Purchase(ctx context.Context, i *Invoice) (*Invoice, error)
 	Pay(i *Invoice) *PayResponse
-	Verify(ctx context.Context, amount uint64, args ...string) (*Receipt, error)
+	Verify(ctx context.Context, amount uint64, args map[string]string) (*Receipt, error)
 }
 
 type PayResponse struct {
