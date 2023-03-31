@@ -64,20 +64,50 @@ func (p *Paytr) Purchase(ctx context.Context, i *payment.Invoice) (*payment.Invo
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
-	_ = writer.WriteField("merchant_id", p.cfg.MerchantID)
-	_ = writer.WriteField("timeout_limit", "30")
-	_ = writer.WriteField("payment_amount", fmt.Sprint(i.Amount))
-	for k, v := range i.Details {
-		_ = writer.WriteField(k, v)
+	err := writer.WriteField("merchant_id", p.cfg.MerchantID)
+	if err != nil {
+		return nil, err
 	}
-	_ = writer.WriteField("merchant_ok_url", p.cfg.CallbackURL+"?status=success")
-	_ = writer.WriteField("merchant_fail_url", p.cfg.CallbackURL+"?status=fail")
+	err = writer.WriteField("timeout_limit", "30")
+	if err != nil {
+		return nil, err
+	}
+	err = writer.WriteField("payment_amount", fmt.Sprint(i.Amount))
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range i.Details {
+		err = writer.WriteField(k, v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = writer.WriteField("merchant_ok_url", p.cfg.CallbackURL+"?status=success")
+	if err != nil {
+		return nil, err
+	}
+	err = writer.WriteField("merchant_fail_url", p.cfg.CallbackURL+"?status=fail")
+	if err != nil {
+		return nil, err
+	}
 	if p.cfg.IsTest {
-		_ = writer.WriteField("debug_on", "1")
-		_ = writer.WriteField("test_mode", "1")
+		err = writer.WriteField("debug_on", "1")
+		if err != nil {
+			return nil, err
+		}
+		err = writer.WriteField("test_mode", "1")
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		_ = writer.WriteField("debug_on", "0")
-		_ = writer.WriteField("test_mode", "0")
+		err = writer.WriteField("debug_on", "0")
+		if err != nil {
+			return nil, err
+		}
+		err = writer.WriteField("test_mode", "0")
+		if err != nil {
+			return nil, err
+		}
 	}
 	itest := 0
 	if p.cfg.IsTest {
@@ -88,12 +118,15 @@ func (p *Paytr) Purchase(ctx context.Context, i *payment.Invoice) (*payment.Invo
 		i.Get("user_basket"), i.Get("no_installment"), i.Get("max_installment"), i.Get("currency"),
 		itest, p.cfg.MerchantSalt)
 	hash := hmac.New(sha256.New, []byte(p.cfg.MerchantKey))
-	_, err := hash.Write([]byte(hashStr))
+	_, err = hash.Write([]byte(hashStr))
 	if err != nil {
 		return nil, err
 	}
 	token := base64.StdEncoding.EncodeToString(hash.Sum(nil))
-	_ = writer.WriteField("paytr_token", token)
+	err = writer.WriteField("paytr_token", token)
+	if err != nil {
+		return nil, err
+	}
 	err = writer.Close()
 	if err != nil {
 		return nil, err
