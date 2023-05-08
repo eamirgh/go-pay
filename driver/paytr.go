@@ -82,11 +82,11 @@ func (p *Paytr) Purchase(ctx context.Context, i *payment.Invoice) (*payment.Invo
 			return nil, err
 		}
 	}
-	err = writer.WriteField("merchant_ok_url", p.cfg.CallbackURL+i.TransactionID+"?status=success")
+	err = writer.WriteField("merchant_ok_url", p.cfg.CallbackURL+"/"+i.TransactionID+"?status=success")
 	if err != nil {
 		return nil, err
 	}
-	err = writer.WriteField("merchant_fail_url", p.cfg.CallbackURL+i.TransactionID+"?status=fail")
+	err = writer.WriteField("merchant_fail_url", p.cfg.CallbackURL+"/"+i.TransactionID+"?status=fail")
 	if err != nil {
 		return nil, err
 	}
