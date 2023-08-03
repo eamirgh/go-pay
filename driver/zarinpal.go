@@ -116,16 +116,22 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 		return nil, fmt.Errorf("invalid status code: %d from %s returned %s", resp.StatusCode, z.endpoints["apiPurchaseUrl"], string(b))
 	}
 	var res struct {
-		Status    int     `json:"code"`
-		Authority string  `json:"authority"`
+		Data struct {
+			Status    int    `json:"code"`
+			Authority string `json:"authority"`
+			Errors    []struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			} `json:"errors,omitempty"`
+		} `json:"data"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
 		return nil, err
 	}
-	if res.Status != 100 {
-		return nil, fmt.Errorf("could not complete: %s status was %d", string(b), res.Status)
+	if res.Data.Status != 100 {
+		return nil, fmt.Errorf("could not complete: %s status was %d", string(b), res.Data.Status)
 	}
-	i.TransactionID = res.Authority
+	i.TransactionID = res.Data.Authority
 	return i, nil
 }
 func (z *Zarinpal) Pay(i *payment.Invoice) *payment.PayResponse {
@@ -174,22 +180,24 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		return nil, err
 	}
 	var res struct {
-		Status  int               `json:"code"`
-		RefID   string            `json:"ref_id"`
-		Details map[string]string `json:"details"`
-		Errors  struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
+		Data struct {
+			Status  int               `json:"code"`
+			RefID   string            `json:"ref_id"`
+			Details map[string]string `json:"details"`
+			Errors  []struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			} `json:"errors,omitempty"`
+		} `json:"data"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
 		return nil, err
 	}
-	if res.Status != 100 {
-		return nil, errors.New(res.Errors.Message)
+	if res.Data.Status != 100 {
+		return nil, errors.New(res.Data.Errors[0].Message)
 	}
 	return &payment.Receipt{
-		RefID:   res.RefID,
-		Details: res.Details,
+		RefID:   res.Data.RefID,
+		Details: res.Data.Details,
 	}, nil
 }
