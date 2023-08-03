@@ -22,9 +22,9 @@ var normalAPI = map[string]string{
 	"apiVerificationUrl": "https://api.zarinpal.com/pg/v4/payment/verify.json",
 }
 var sandboxAPI = map[string]string{
-	"apiPurchaseUrl":     "https://sandbox.zarinpal.com/pg/services/WebGate/wsdl",
+	"apiPurchaseUrl":     "https://sandbox.zarinpal.com/pg/rest/WebGate/",
 	"apiPaymentUrl":      "https://sandbox.zarinpal.com/pg/StartPay/",
-	"apiVerificationUrl": "https://sandbox.zarinpal.com/pg/services/WebGate/wsdl",
+	"apiVerificationUrl": "https://sandbox.zarinpal.com/pg/rest/WebGate/",
 }
 var zarinGateAPI = map[string]string{
 	"apiPurchaseUrl":     "https://ir.zarinpal.com/pg/services/WebGate/wsdl",
