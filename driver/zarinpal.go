@@ -22,9 +22,9 @@ var normalAPI = map[string]string{
 	"apiVerificationUrl": "https://api.zarinpal.com/pg/v4/payment/verify.json",
 }
 var sandboxAPI = map[string]string{
-	"apiPurchaseUrl":     "https://sandbox.zarinpal.com/pg/services/WebGate/wsdl",
+	"apiPurchaseUrl":     "https://sandbox.zarinpal.com/pg/v4/payment/request.json",
 	"apiPaymentUrl":      "https://sandbox.zarinpal.com/pg/StartPay/",
-	"apiVerificationUrl": "https://sandbox.zarinpal.com/pg/services/WebGate/wsdl",
+	"apiVerificationUrl": "https://sandbox.zarinpal.com/pg/v4/payment/verify.json",
 }
 var zarinGateAPI = map[string]string{
 	"apiPurchaseUrl":     "https://ir.zarinpal.com/pg/services/WebGate/wsdl",
@@ -80,6 +80,10 @@ type purchaseReq struct {
 	Description string            `json:"description"`
 	Metadata    map[string]string `json:"metadata"`
 }
+type resErr struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
 
 func (r *purchaseReq) toJSON() ([]byte, error) {
 	return json.Marshal(r)
@@ -116,12 +120,9 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 		return nil, fmt.Errorf("invalid status code: %d from %s returned %s", resp.StatusCode, z.endpoints["apiPurchaseUrl"], string(b))
 	}
 	var res struct {
-		Status    int    `json:"status"`
-		Authority string `json:"authority"`
-		Errors    struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
+		Status    int     `json:"status"`
+		Authority string  `json:"authority"`
+		Errors    *resErr `json:"errors,omitempty"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
 		return nil, err
