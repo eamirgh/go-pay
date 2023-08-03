@@ -109,7 +109,7 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 100 {
-		return nil, fmt.Errorf("invalid status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("invalid status code: %d from %s", resp.StatusCode, z.endpoints["apiPurchaseUrl"])
 	}
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
