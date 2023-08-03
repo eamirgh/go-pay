@@ -123,7 +123,7 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 		return nil, err
 	}
 	if res.Status != 100 {
-		return nil, errors.New("could not complete")
+		return nil, fmt.Errorf("could not complete: %s status was %d", string(b), res.Status)
 	}
 	i.TransactionID = res.Authority
 	return i, nil
