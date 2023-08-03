@@ -116,7 +116,7 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 		return nil, fmt.Errorf("invalid status code: %d from %s returned %s", resp.StatusCode, z.endpoints["apiPurchaseUrl"], string(b))
 	}
 	var res struct {
-		Status    int     `json:"status"`
+		Status    int     `json:"code"`
 		Authority string  `json:"authority"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
@@ -174,7 +174,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		return nil, err
 	}
 	var res struct {
-		Status  int               `json:"status"`
+		Status  int               `json:"code"`
 		RefID   string            `json:"ref_id"`
 		Details map[string]string `json:"details"`
 		Errors  struct {
