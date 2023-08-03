@@ -80,10 +80,6 @@ type purchaseReq struct {
 	Description string            `json:"description"`
 	Metadata    map[string]string `json:"metadata"`
 }
-type resErr struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
 
 func (r *purchaseReq) toJSON() ([]byte, error) {
 	return json.Marshal(r)
@@ -122,13 +118,12 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 	var res struct {
 		Status    int     `json:"status"`
 		Authority string  `json:"authority"`
-		Errors    *resErr `json:"errors,omitempty"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
 		return nil, err
 	}
 	if res.Status != 100 {
-		return nil, errors.New(res.Errors.Message)
+		return nil, errors.New("could not complete")
 	}
 	i.TransactionID = res.Authority
 	return i, nil
