@@ -177,17 +177,29 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		return nil, err
 	}
 	var res struct {
-		Data struct {
-			Status  int               `json:"code"`
-			RefID   string            `json:"ref_id"`
-		} `json:"data"`
+		Data []struct {
+			Status int    `json:"code"`
+			RefID  string `json:"ref_id"`
+		} `json:"data,omitempty"`
+		Errors struct {
+			Status  int    `json:"code"`
+			Message string `jsone:"message"`
+		} `json:"errors,omitempty"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
 		return nil, errors.Join(err, fmt.Errorf("response was: %s ", string(b)))
 	}
+
 	msg := "خطای ناشناخته رخ داده است. در صورت کسر مبلغ از حساب حداکثر پس از 72 ساعت به حسابتان برمیگردد"
 	var isSuccess bool
-	switch res.Data.Status {
+	var status int
+	if res.Errors != nil {
+		status = res.Errors.status
+	} else {
+		res = res.Data[0].Status
+	}
+
+	switch status {
 	case 100:
 		isSuccess = true
 		msg = "تراکنش با موفقیت انجام گردید"
@@ -233,7 +245,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	}
 	if isSuccess {
 		return &payment.Receipt{
-			RefID:   res.Data.RefID,
+			RefID: res.Data.RefID,
 			Details: map[string]string{
 				"message": msg,
 			},
