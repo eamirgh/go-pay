@@ -26,11 +26,6 @@ var sandboxAPI = map[string]string{
 	"apiPaymentUrl":      "https://sandbox.zarinpal.com/pg/StartPay/",
 	"apiVerificationUrl": "https://sandbox.zarinpal.com/pg/v4/payment/verify.json",
 }
-var zarinGateAPI = map[string]string{
-	"apiPurchaseUrl":     "https://ir.zarinpal.com/pg/services/WebGate/wsdl",
-	"apiPaymentUrl":      "https://www.zarinpal.com/pg/StartPay/:authority/ZarinGate",
-	"apiVerificationUrl": "https://ir.zarinpal.com/pg/services/WebGate/wsdl",
-}
 
 type Zarinpal struct {
 	cfg       *ZarinpalConfig
@@ -60,8 +55,6 @@ func (z *ZarinpalConfig) Gateway() (*Zarinpal, error) {
 	}
 	var endpoints map[string]string
 	switch z.Mode {
-	case ZARINPAL_GATEWAY:
-		endpoints = zarinGateAPI
 	case ZARINPAL_NORMAL:
 		endpoints = normalAPI
 	case ZARINPAL_SANDBOX:
@@ -146,6 +139,23 @@ type verifyReq struct {
 	Authority  string `json:"authority"`
 	Amount     uint64 `json:"amount"`
 }
+type data struct {
+	Code        int      `json:"code"`
+	Message     string   `json:"message"`
+	Authority   string   `json:"authority,omitempty"`
+	CardHash    string   `json:"card_hash,omitempty"`
+	CardPan     string   `json:"card_pan,omitempty"`
+	RefID       string      `json:"ref_id,omitempty"`
+	FeeType     string   `json:"fee_type,omitempty"`
+	Fee         int      `json:"fee,omitempty"`
+	Authorities []struct {
+		Authority   string `json:"authority"`
+		Amount      int    `json:"amount"`
+		CallBackURL string `json:"callback_url"`
+		Referer     string `json:"referer"`
+		Date        string `json:"date"`
+	} `json:"authorities,omitempty"`
+}
 
 func (r *verifyReq) toJSON() ([]byte, error) {
 	return json.Marshal(r)
@@ -177,26 +187,23 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		return nil, err
 	}
 	var res struct {
-		Data []struct {
-			Status int    `json:"code"`
-			RefID  string `json:"ref_id"`
-		} `json:"data,omitempty"`
-		Errors *struct {
-			Status  int    `json:"code"`
+		Data   *data    `json:"data"`
+		Errors []struct{
+			Code int `json:"code"`
 			Message string `json:"message"`
-		} `json:"errors,omitempty"`
+		} `json:"errors"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
-		return nil, errors.Join(err, fmt.Errorf("response was: %s ", string(b)))
+		return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
 	}
 
 	msg := "خطای ناشناخته رخ داده است. در صورت کسر مبلغ از حساب حداکثر پس از 72 ساعت به حسابتان برمیگردد"
 	var isSuccess bool
 	var status int
 	if res.Errors != nil {
-		status = res.Errors.Status
+		status = res.Errors[0].Code
 	} else {
-		status = res.Data[0].Status
+		status = res.Data.Code
 	}
 
 	switch status {
@@ -245,7 +252,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	}
 	if isSuccess {
 		return &payment.Receipt{
-			RefID: res.Data[0].RefID,
+			RefID: res.Data.RefID,
 			Details: map[string]string{
 				"message": msg,
 			},
