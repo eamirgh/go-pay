@@ -183,7 +183,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
-		return nil, err
+		return nil, errors.Join(err, fmt.Errorf("response was: %s ", string(b)))
 	}
 	msg := "خطای ناشناخته رخ داده است. در صورت کسر مبلغ از حساب حداکثر پس از 72 ساعت به حسابتان برمیگردد"
 	var isSuccess bool
