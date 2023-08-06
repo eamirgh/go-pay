@@ -180,11 +180,6 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		Data struct {
 			Status  int               `json:"code"`
 			RefID   string            `json:"ref_id"`
-			Details map[string]string `json:"details"`
-			Errors  []struct {
-				Code    int    `json:"code"`
-				Message string `json:"message"`
-			} `json:"errors,omitempty"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
@@ -239,7 +234,9 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	if isSuccess {
 		return &payment.Receipt{
 			RefID:   res.Data.RefID,
-			Details: res.Data.Details,
+			Details: map[string]string{
+				"message": msg,
+			},
 		}, nil
 	}
 	return nil, errors.New(msg)
