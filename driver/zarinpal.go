@@ -193,11 +193,57 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	if err := json.Unmarshal(b, &res); err != nil {
 		return nil, err
 	}
-	if res.Data.Status != 100 {
-		return nil, errors.New(res.Data.Errors[0].Message)
+	msg := "خطای ناشناخته رخ داده است. در صورت کسر مبلغ از حساب حداکثر پس از 72 ساعت به حسابتان برمیگردد"
+	var isSuccess bool
+	switch res.Data.Status {
+	case 100:
+		isSuccess = true
+		msg = "تراکنش با موفقیت انجام گردید"
+	case 101:
+		isSuccess = true
+		msg = "عمليات پرداخت موفق بوده و قبلا عملیات وریفای تراكنش انجام شده است"
+	case -9:
+		msg = "خطای اعتبار سنجی"
+	case -10:
+		msg = "ای پی و يا مرچنت كد پذيرنده صحيح نمی باشد"
+	case -11:
+		msg = "مرچنت کد فعال نیست لطفا با تیم پشتیبانی ما تماس بگیرید"
+	case -12:
+		msg = "تلاش بیش از حد در یک بازه زمانی کوتاه"
+	case -15:
+		msg = "ترمینال شما به حالت تعلیق در آمده با تیم پشتیبانی تماس بگیرید"
+	case -16:
+		msg = "سطح تاييد پذيرنده پايين تر از سطح نقره ای می باشد"
+	case -30:
+		msg = "اجازه دسترسی به تسویه اشتراکی شناور ندارید"
+	case -31:
+		msg = "حساب بانکی تسویه را به پنل اضافه کنید مقادیر وارد شده برای تسهیم صحيح نمی باشد"
+	case -32:
+		msg = "مقادیر وارد شده برای تسهیم صحيح نمی باشد"
+	case -33:
+		msg = "درصد های وارد شده صحيح نمی باشد"
+	case -34:
+		msg = "مبلغ از کل تراکنش بیشتر است"
+	case -35:
+		msg = "تعداد افراد دریافت کننده تسهیم بیش از حد مجاز است"
+	case -40:
+		msg = "پارامترهای اضافی نامعتبر، expire_in معتبر نیست"
+	case -50:
+		msg = "مبلغ پرداخت شده با مقدار مبلغ در وریفای متفاوت است"
+	case -51:
+		msg = "پرداخت ناموفق"
+	case -52:
+		msg = "خطای غیر منتظره با پشتیبانی تماس بگیرید"
+	case -53:
+		msg = "اتوریتی برای این مرچنت کد نیست"
+	case -54:
+		msg = "اتوریتی نامعتبر است"
 	}
-	return &payment.Receipt{
-		RefID:   res.Data.RefID,
-		Details: res.Data.Details,
-	}, nil
+	if isSuccess {
+		return &payment.Receipt{
+			RefID:   res.Data.RefID,
+			Details: res.Data.Details,
+		}, nil
+	}
+	return nil, errors.New(msg)
 }
