@@ -181,9 +181,9 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 			Status int    `json:"code"`
 			RefID  string `json:"ref_id"`
 		} `json:"data,omitempty"`
-		Errors struct {
+		Errors *struct {
 			Status  int    `json:"code"`
-			Message string `jsone:"message"`
+			Message string `json:"message"`
 		} `json:"errors,omitempty"`
 	}
 	if err := json.Unmarshal(b, &res); err != nil {
@@ -194,9 +194,9 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	var isSuccess bool
 	var status int
 	if res.Errors != nil {
-		status = res.Errors.status
+		status = res.Errors.Status
 	} else {
-		res = res.Data[0].Status
+		status = res.Data[0].Status
 	}
 
 	switch status {
@@ -245,7 +245,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	}
 	if isSuccess {
 		return &payment.Receipt{
-			RefID: res.Data.RefID,
+			RefID: res.Data[0].RefID,
 			Details: map[string]string{
 				"message": msg,
 			},
