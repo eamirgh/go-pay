@@ -176,9 +176,6 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("invalid status code: %d from %s returned %s", resp.StatusCode, z.endpoints["apiVerificationUrl"], string(b))
-	}
 	var res struct {
 		Data struct {
 			Status  int               `json:"code"`
