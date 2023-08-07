@@ -14,7 +14,6 @@ import (
 
 const ZARINPAL_SANDBOX = "sandbox"
 const ZARINPAL_NORMAL = "normal"
-const ZARINPAL_GATEWAY = "gateway"
 
 var normalAPI = map[string]string{
 	"apiPurchaseUrl":     "https://api.zarinpal.com/pg/v4/payment/request.json",
@@ -50,7 +49,7 @@ func NewZarinpalConfig(mode, merchantID, callback, description string) *Zarinpal
 
 // Gateway creates new Zarinpal gateway from the credentials in config
 func (z *ZarinpalConfig) Gateway() (*Zarinpal, error) {
-	if z.Mode != ZARINPAL_GATEWAY && z.Mode != ZARINPAL_NORMAL && z.Mode != ZARINPAL_SANDBOX {
+	if z.Mode != ZARINPAL_NORMAL && z.Mode != ZARINPAL_SANDBOX {
 		return nil, errors.New("invalid mode for Zarinpal driver")
 	}
 	var endpoints map[string]string
@@ -139,19 +138,33 @@ type verifyReq struct {
 	Authority  string `json:"authority"`
 	Amount     uint64 `json:"amount"`
 }
-type data struct {
-	Code      int    `json:"code"`
-	Message   string `json:"message"`
-	Authority string `json:"authority,omitempty"`
-	CardHash  string `json:"card_hash,omitempty"`
-	CardPan   string `json:"card_pan,omitempty"`
-	RefID     string `json:"ref_id,omitempty"`
-	FeeType   string `json:"fee_type,omitempty"`
-	Fee       int    `json:"fee,omitempty"`
-	Errors    []struct {
+
+type successVerifyRes struct {
+	Data struct {
+		Code      int    `json:"code"`
+		Message   string `json:"message"`
+		Authority string `json:"authority,omitempty"`
+		CardHash  string `json:"card_hash,omitempty"`
+		CardPan   string `json:"card_pan,omitempty"`
+		RefID     string `json:"ref_id,omitempty"`
+		FeeType   string `json:"fee_type,omitempty"`
+		Fee       int    `json:"fee,omitempty"`
+	} `json:"data,omitempty"`
+	Errors []struct {
 		Code    int    `json:"code,omitempty"`
 		Message string `json:"message,omitempty"`
-	} `json:"errors"`
+	} `json:"errors,omitempty"`
+}
+
+type failVerifyRes struct {
+	Data []struct {
+		Code    int    `json:"code,omitempty"`
+		Message string `json:"message,omitempty"`
+	} `json:"data,omitempty"`
+	Errors struct {
+		Code    int    `json:"code,omitempty"`
+		Message string `json:"message,omitempty"`
+	} `json:"errors,omitempty"`
 }
 
 func (r *verifyReq) toJSON() ([]byte, error) {
@@ -183,32 +196,33 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	if err != nil {
 		return nil, err
 	}
-	var res struct {
-		Data   *data `json:"data"`
-		Errors []struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-	if err := json.Unmarshal(b, &res); err != nil {
-		return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
+	var isSuccess bool
+	var successRes successVerifyRes
+	var failRes failVerifyRes
+
+	if resp.StatusCode == 200 {
+		isSuccess = true
+		if err := json.Unmarshal(b, &successRes); err != nil {
+			return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
+		}
+	} else {
+		if err := json.Unmarshal(b, &failRes); err != nil {
+			return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
+		}
 	}
 
 	msg := "خطای ناشناخته رخ داده است. در صورت کسر مبلغ از حساب حداکثر پس از 72 ساعت به حسابتان برمیگردد"
-	var isSuccess bool
 	var status int
-	if res.Errors != nil {
-		status = res.Errors[0].Code
+	if isSuccess {
+		status = successRes.Data.Code
 	} else {
-		status = res.Data.Code
+		status = failRes.Errors.Code
 	}
 
 	switch status {
 	case 100:
-		isSuccess = true
 		msg = "تراکنش با موفقیت انجام گردید"
 	case 101:
-		isSuccess = true
 		msg = "عمليات پرداخت موفق بوده و قبلا عملیات وریفای تراكنش انجام شده است"
 	case -9:
 		msg = "خطای اعتبار سنجی"
@@ -249,7 +263,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	}
 	if isSuccess {
 		return &payment.Receipt{
-			RefID: res.Data.RefID,
+			RefID: successRes.Data.RefID,
 			Details: map[string]string{
 				"message": msg,
 			},
