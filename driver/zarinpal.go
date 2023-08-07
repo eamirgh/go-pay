@@ -140,21 +140,18 @@ type verifyReq struct {
 	Amount     uint64 `json:"amount"`
 }
 type data struct {
-	Code        int      `json:"code"`
-	Message     string   `json:"message"`
-	Authority   string   `json:"authority,omitempty"`
-	CardHash    string   `json:"card_hash,omitempty"`
-	CardPan     string   `json:"card_pan,omitempty"`
-	RefID       string      `json:"ref_id,omitempty"`
-	FeeType     string   `json:"fee_type,omitempty"`
-	Fee         int      `json:"fee,omitempty"`
-	Authorities []struct {
-		Authority   string `json:"authority"`
-		Amount      int    `json:"amount"`
-		CallBackURL string `json:"callback_url"`
-		Referer     string `json:"referer"`
-		Date        string `json:"date"`
-	} `json:"authorities,omitempty"`
+	Code      int    `json:"code"`
+	Message   string `json:"message"`
+	Authority string `json:"authority,omitempty"`
+	CardHash  string `json:"card_hash,omitempty"`
+	CardPan   string `json:"card_pan,omitempty"`
+	RefID     string `json:"ref_id,omitempty"`
+	FeeType   string `json:"fee_type,omitempty"`
+	Fee       int    `json:"fee,omitempty"`
+	Errors    []struct {
+		Code    int    `json:"code,omitempty"`
+		Message string `json:"message,omitempty"`
+	} `json:"errors"`
 }
 
 func (r *verifyReq) toJSON() ([]byte, error) {
@@ -187,9 +184,9 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		return nil, err
 	}
 	var res struct {
-		Data   *data    `json:"data"`
-		Errors []struct{
-			Code int `json:"code"`
+		Data   *data `json:"data"`
+		Errors []struct {
+			Code    int    `json:"code"`
 			Message string `json:"message"`
 		} `json:"errors"`
 	}
