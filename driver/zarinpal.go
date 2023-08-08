@@ -194,7 +194,7 @@ func (r *sandboxPaymentVerificationReq) toJSON() ([]byte, error) {
 
 type sandboxPaymentVerificationRes struct {
 	Status int
-	RefID  string
+	RefID  json.Number
 }
 
 type successVerifyRes struct {
@@ -278,7 +278,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		}
 		if sandboxRes.Status == 100 || sandboxRes.Status == 101 {
 			return &payment.Receipt{
-				RefID: sandboxRes.RefID,
+				RefID: sandboxRes.RefID.String(),
 				Details: map[string]string{
 					"message": "تراکنش با موفقیت انجام گردید",
 					"status":  "success",
