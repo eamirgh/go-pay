@@ -279,6 +279,10 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		if sandboxRes.Status == 100 {
 			return &payment.Receipt{
 				RefID: sandboxRes.RefID,
+				Details: map[string]string{
+					"message": "تراکنش با موفقیت انجام گردید",
+					"status":  "success",
+				},
 			}, nil
 		} else {
 			return nil, errors.New("پرداخت ناموفق")
@@ -351,6 +355,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 			RefID: successRes.Data.RefID,
 			Details: map[string]string{
 				"message": msg,
+				"status":  "success",
 			},
 		}, nil
 	}
