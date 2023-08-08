@@ -276,7 +276,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		if err := json.Unmarshal(b, &sandboxRes); err != nil {
 			return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
 		}
-		if sandboxRes.Status == 100 {
+		if sandboxRes.Status == 100 || sandboxRes.Status == 101 {
 			return &payment.Receipt{
 				RefID: sandboxRes.RefID,
 				Details: map[string]string{
