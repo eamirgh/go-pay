@@ -21,9 +21,9 @@ var normalAPI = map[string]string{
 	"apiVerificationUrl": "https://api.zarinpal.com/pg/v4/payment/verify.json",
 }
 var sandboxAPI = map[string]string{
-	"apiPurchaseUrl":     "https://sandbox.zarinpal.com/pg/v4/payment/request.json",
+	"apiPurchaseUrl":     "https://sandbox.zarinpal.com/pg/rest/WebGate/PaymentRequest.json",
 	"apiPaymentUrl":      "https://sandbox.zarinpal.com/pg/StartPay/",
-	"apiVerificationUrl": "https://sandbox.zarinpal.com/pg/v4/payment/verify.json",
+	"apiVerificationUrl": "https://sandbox.zarinpal.com/pg/rest/WebGate/PaymentVerification.json",
 }
 
 type Zarinpal struct {
@@ -72,21 +72,61 @@ type purchaseReq struct {
 	Description string            `json:"description"`
 	Metadata    map[string]string `json:"metadata"`
 }
+type purchaseRes struct {
+	Data struct {
+		Status    int    `json:"code"`
+		Authority string `json:"authority"`
+		Errors    []struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"errors,omitempty"`
+	} `json:"data"`
+}
 
 func (r *purchaseReq) toJSON() ([]byte, error) {
 	return json.Marshal(r)
 }
 
+type sandboxPurchaseReq struct {
+	MerchantID  string
+	Amount      uint64
+	CallbackURL string
+	Description string
+}
+
+type sandboxPurchaseRes struct {
+	Status    int
+	Authority string
+}
+
+func (r *sandboxPurchaseReq) toJSON() ([]byte, error) {
+	return json.Marshal(r)
+}
+
 func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.Invoice, error) {
-	bs, err := (&purchaseReq{
-		MerchantID:  z.cfg.MerchantID,
-		Amount:      i.Amount,
-		CallbackURL: z.cfg.Callback + "/" + i.TransactionID,
-		Description: z.cfg.Description,
-		Metadata:    i.Details,
-	}).toJSON()
-	if err != nil {
-		return nil, err
+	var bs []byte
+	var err error
+	if z.cfg.Mode == ZARINPAL_SANDBOX {
+		bs, err = (&sandboxPurchaseReq{
+			MerchantID:  z.cfg.MerchantID,
+			Amount:      i.Amount,
+			CallbackURL: z.cfg.Callback + "/" + i.TransactionID,
+			Description: z.cfg.Description,
+		}).toJSON()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		bs, err = (&purchaseReq{
+			MerchantID:  z.cfg.MerchantID,
+			Amount:      i.Amount,
+			CallbackURL: z.cfg.Callback + "/" + i.TransactionID,
+			Description: z.cfg.Description,
+			Metadata:    i.Details,
+		}).toJSON()
+		if err != nil {
+			return nil, err
+		}
 	}
 	body := bytes.NewReader(bs)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, z.endpoints["apiPurchaseUrl"], body)
@@ -107,24 +147,27 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("invalid status code: %d from %s returned %s", resp.StatusCode, z.endpoints["apiPurchaseUrl"], string(b))
 	}
-	var res struct {
-		Data struct {
-			Status    int    `json:"code"`
-			Authority string `json:"authority"`
-			Errors    []struct {
-				Code    int    `json:"code"`
-				Message string `json:"message"`
-			} `json:"errors,omitempty"`
-		} `json:"data"`
+	if z.cfg.Mode == ZARINPAL_SANDBOX {
+		var res sandboxPurchaseRes
+		if err := json.Unmarshal(b, &res); err != nil {
+			return nil, err
+		}
+		if res.Status != 100 {
+			return nil, fmt.Errorf("could not complete: %s status was %d", string(b), res.Status)
+		}
+		i.TransactionID = res.Authority
+		return i, nil
+	} else {
+		var res purchaseRes
+		if err := json.Unmarshal(b, &res); err != nil {
+			return nil, err
+		}
+		if res.Data.Status != 100 {
+			return nil, fmt.Errorf("could not complete: %s status was %d", string(b), res.Data.Status)
+		}
+		i.TransactionID = res.Data.Authority
+		return i, nil
 	}
-	if err := json.Unmarshal(b, &res); err != nil {
-		return nil, err
-	}
-	if res.Data.Status != 100 {
-		return nil, fmt.Errorf("could not complete: %s status was %d", string(b), res.Data.Status)
-	}
-	i.TransactionID = res.Data.Authority
-	return i, nil
 }
 func (z *Zarinpal) Pay(i *payment.Invoice) *payment.PayResponse {
 	return &payment.PayResponse{
@@ -137,6 +180,21 @@ type verifyReq struct {
 	MerchantID string `json:"merchant_id"`
 	Authority  string `json:"authority"`
 	Amount     uint64 `json:"amount"`
+}
+
+type sandboxPaymentVerificationReq struct {
+	MerchantID string
+	Authority  string
+	Amount     int
+}
+
+func (r *sandboxPaymentVerificationReq) toJSON() ([]byte, error) {
+	return json.Marshal(r)
+}
+
+type sandboxPaymentVerificationRes struct {
+	Status int
+	RefID  string
 }
 
 type successVerifyRes struct {
@@ -172,13 +230,26 @@ func (r *verifyReq) toJSON() ([]byte, error) {
 }
 
 func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]string) (*payment.Receipt, error) {
-	bs, err := (&verifyReq{
-		MerchantID: z.cfg.MerchantID,
-		Authority:  args["transactionID"],
-		Amount:     amount,
-	}).toJSON()
-	if err != nil {
-		return nil, err
+	var bs []byte
+	var err error
+	if z.cfg.Mode == ZARINPAL_SANDBOX {
+		bs, err = (&sandboxPaymentVerificationReq{
+			MerchantID: z.cfg.MerchantID,
+			Authority:  args["transactionID"],
+			Amount:     int(amount),
+		}).toJSON()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		bs, err = (&verifyReq{
+			MerchantID: z.cfg.MerchantID,
+			Authority:  args["transactionID"],
+			Amount:     amount,
+		}).toJSON()
+		if err != nil {
+			return nil, err
+		}
 	}
 	body := bytes.NewReader(bs)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, z.endpoints["apiVerificationUrl"], body)
@@ -199,15 +270,29 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	var isSuccess bool
 	var successRes successVerifyRes
 	var failRes failVerifyRes
+	var sandboxRes sandboxPaymentVerificationRes
 
-	if resp.StatusCode == 200 {
-		isSuccess = true
-		if err := json.Unmarshal(b, &successRes); err != nil {
+	if z.cfg.Mode == ZARINPAL_SANDBOX {
+		if err := json.Unmarshal(b, &sandboxRes); err != nil {
 			return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
 		}
+		if sandboxRes.Status == 100 {
+			return &payment.Receipt{
+				RefID: sandboxRes.RefID,
+			}, nil
+		} else {
+			return nil, errors.New("پرداخت ناموفق")
+		}
 	} else {
-		if err := json.Unmarshal(b, &failRes); err != nil {
-			return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
+		if resp.StatusCode == 200 {
+			isSuccess = true
+			if err := json.Unmarshal(b, &successRes); err != nil {
+				return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
+			}
+		} else {
+			if err := json.Unmarshal(b, &failRes); err != nil {
+				return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
+			}
 		}
 	}
 
