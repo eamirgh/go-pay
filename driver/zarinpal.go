@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/eamirgh/go-pay/payment"
+	"github.com/pkg/errors"
 )
 
 const ZARINPAL_SANDBOX = "sandbox"
@@ -38,12 +38,11 @@ type ZarinpalConfig struct {
 	Description string
 }
 
-func NewZarinpalConfig(mode, merchantID, callback, description string) *ZarinpalConfig {
+func NewZarinpalConfig(mode, merchantID, callback string) *ZarinpalConfig {
 	return &ZarinpalConfig{
-		Mode:        mode,
-		MerchantID:  merchantID,
-		Callback:    callback,
-		Description: description,
+		Mode:       mode,
+		MerchantID: merchantID,
+		Callback:   callback,
 	}
 }
 
@@ -106,12 +105,16 @@ func (r *sandboxPurchaseReq) toJSON() ([]byte, error) {
 func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.Invoice, error) {
 	var bs []byte
 	var err error
+	d := fmt.Sprintf("payment for %s", i.ID.String())
+	if i.Has("description") {
+		d = i.Get("description")
+	}
 	if z.cfg.Mode == ZARINPAL_SANDBOX {
 		bs, err = (&sandboxPurchaseReq{
 			MerchantID:  z.cfg.MerchantID,
 			Amount:      i.Amount,
 			CallbackURL: z.cfg.Callback + "/" + i.TransactionID,
-			Description: z.cfg.Description,
+			Description: d,
 		}).toJSON()
 		if err != nil {
 			return nil, err
@@ -274,7 +277,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 
 	if z.cfg.Mode == ZARINPAL_SANDBOX {
 		if err := json.Unmarshal(b, &sandboxRes); err != nil {
-			return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
+			return nil, errors.Wrap(err, fmt.Sprintf("response was: *** %s *** ", string(b)))
 		}
 		if sandboxRes.Status == 100 || sandboxRes.Status == 101 {
 			return &payment.Receipt{
@@ -291,11 +294,11 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 		if resp.StatusCode == 200 {
 			isSuccess = true
 			if err := json.Unmarshal(b, &successRes); err != nil {
-				return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
+				return nil, errors.Wrap(err, fmt.Sprintf("response was: *** %s *** ", string(b)))
 			}
 		} else {
 			if err := json.Unmarshal(b, &failRes); err != nil {
-				return nil, errors.Join(err, fmt.Errorf("response was: *** %s *** ", string(b)))
+				return nil, errors.Wrap(err, fmt.Sprintf("response was: *** %s *** ", string(b)))
 			}
 		}
 	}
