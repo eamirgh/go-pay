@@ -124,7 +124,7 @@ func (z *Zarinpal) Purchase(ctx context.Context, i *payment.Invoice) (*payment.I
 			MerchantID:  z.cfg.MerchantID,
 			Amount:      i.Amount,
 			CallbackURL: z.cfg.Callback + "/" + i.TransactionID,
-			Description: z.cfg.Description,
+			Description: d,
 			Metadata:    i.Details,
 		}).toJSON()
 		if err != nil {
