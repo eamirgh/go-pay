@@ -202,14 +202,14 @@ type sandboxPaymentVerificationRes struct {
 
 type successVerifyRes struct {
 	Data struct {
-		Code      int    `json:"code"`
-		Message   string `json:"message"`
-		Authority string `json:"authority,omitempty"`
-		CardHash  string `json:"card_hash,omitempty"`
-		CardPan   string `json:"card_pan,omitempty"`
-		RefID     string `json:"ref_id,omitempty"`
-		FeeType   string `json:"fee_type,omitempty"`
-		Fee       int    `json:"fee,omitempty"`
+		Code      int         `json:"code"`
+		Message   string      `json:"message"`
+		Authority string      `json:"authority,omitempty"`
+		CardHash  string      `json:"card_hash,omitempty"`
+		CardPan   string      `json:"card_pan,omitempty"`
+		RefID     json.Number `json:"ref_id,omitempty"`
+		FeeType   string      `json:"fee_type,omitempty"`
+		Fee       int         `json:"fee,omitempty"`
 	} `json:"data,omitempty"`
 	Errors []struct {
 		Code    int    `json:"code,omitempty"`
@@ -355,7 +355,7 @@ func (z *Zarinpal) Verify(ctx context.Context, amount uint64, args map[string]st
 	}
 	if isSuccess {
 		return &payment.Receipt{
-			RefID: successRes.Data.RefID,
+			RefID: successRes.Data.RefID.String(),
 			Details: map[string]string{
 				"message": msg,
 				"status":  "success",
